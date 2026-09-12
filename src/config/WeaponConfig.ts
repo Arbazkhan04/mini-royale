@@ -59,6 +59,11 @@ export interface WeaponStats {
   readonly penetratesWood: boolean;
   /** Time to bring this weapon up after a slot change. */
   readonly swapMs: number;
+  /**
+   * Multiplier on touch aim assist. A shotgun is forgiving at the range it works at; a
+   * sniper is not, because a rifle that snaps onto targets plays itself.
+   */
+  readonly aimAssist: number;
   /** One-line identity shown when the weapon is first picked up. */
   readonly tagline: string;
 }
@@ -99,6 +104,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 12,
     penetratesWood: false,
     swapMs: 200,
+    aimAssist: 1.3,
     tagline: 'Silent. Desperate.',
   }),
   pistol: W({
@@ -134,6 +140,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 10,
     penetratesWood: false,
     swapMs: 170,
+    aimAssist: 1.0,
     tagline: 'Quick draw, quick feet',
   }),
   smg: W({
@@ -169,6 +176,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 8,
     penetratesWood: false,
     swapMs: 250,
+    aimAssist: 1.15,
     tagline: 'Run-and-gun close range',
   }),
   ar: W({
@@ -204,6 +212,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 12,
     penetratesWood: false,
     swapMs: 300,
+    aimAssist: 1.0,
     tagline: 'Good at everything',
   }),
   burst: W({
@@ -239,6 +248,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 12,
     penetratesWood: false,
     swapMs: 300,
+    aimAssist: 0.95,
     tagline: 'Three-round punch',
   }),
   shotgun: W({
@@ -274,6 +284,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 22,
     penetratesWood: false,
     swapMs: 320,
+    aimAssist: 1.7,
     tagline: 'Blows doors off hinges',
   }),
   sniper: W({
@@ -309,6 +320,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 30,
     penetratesWood: true,
     swapMs: 420,
+    aimAssist: 0.15,
     tagline: 'Shoots through wood',
   }),
   lmg: W({
@@ -344,6 +356,7 @@ export const WEAPONS: Record<WeaponId, WeaponStats> = {
     coverDamage: 26,
     penetratesWood: false,
     swapMs: 480,
+    aimAssist: 0.85,
     tagline: 'Chews through cover',
   }),
 };

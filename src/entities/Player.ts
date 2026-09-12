@@ -46,8 +46,11 @@ export class Player extends Combatant {
     this.moveInput.set(input.moveX, input.moveY);
     this.desiredAim = angleBetween(this.x, this.y, input.aimWorldX, input.aimWorldY);
 
-    // Touch players get a small amount of aim help; desktop aims raw.
-    const assist = this.ctx.aimAssist.apply(this, this.desiredAim, delta);
+    // Read the trigger before aiming: holding FIRE is what escalates the assist from a
+    // nudge to actually swinging the gun onto the target.
+    const firing = input.firing;
+
+    const assist = this.ctx.aimAssist.apply(this, this.desiredAim, delta, firing);
     this.desiredAim = assist.aim;
     this.turnSpeed = PLAYER.turnSpeed * assist.turnSpeedMult;
 
@@ -64,7 +67,6 @@ export class Player extends Combatant {
       this.onInventoryChanged();
     }
 
-    const firing = input.firing;
     const edge = firing && !this.previousFiring;
     this.previousFiring = firing;
     this.wantsToFire = firing;

@@ -3,6 +3,7 @@ import type { InputSystem } from '../systems/InputSystem';
 import type { MatchContext } from '../systems/MatchContext';
 import { Announcer } from '../ui/Announcer';
 import { Crosshair } from '../ui/Crosshair';
+import { ThreatOverlay } from '../ui/ThreatOverlay';
 import { HUD } from '../ui/HUD';
 import { InventoryUI } from '../ui/InventoryUI';
 import { KillFeed } from '../ui/KillFeed';
@@ -30,6 +31,7 @@ export class UIScene extends Phaser.Scene {
   private minimap!: Minimap;
   private killFeed!: KillFeed;
   private crosshair!: Crosshair;
+  private threats!: ThreatOverlay;
   private inventory!: InventoryUI;
   private announcer!: Announcer;
   private touch: TouchControls | null = null;
@@ -51,6 +53,7 @@ export class UIScene extends Phaser.Scene {
     this.minimap = new Minimap(this, this.ctx);
     this.killFeed = new KillFeed(this, this.ctx);
     this.crosshair = new Crosshair(this, this.ctx);
+    this.threats = new ThreatOverlay(this, this.ctx);
     this.inventory = new InventoryUI(this, this.ctx);
     this.announcer = new Announcer(this, this.ctx);
 
@@ -186,6 +189,7 @@ export class UIScene extends Phaser.Scene {
     this.minimap.update(delta);
     this.killFeed.update();
     this.crosshair.update(delta);
+    this.threats.update();
     this.announcer.update();
     this.touch?.setAbilityAvailable(this.ctx.signal.hasAbility(this.ctx.player));
   }

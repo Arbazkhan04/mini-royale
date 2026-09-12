@@ -111,15 +111,57 @@ export const COMBAT = {
  */
 export const AIM_ASSIST = {
   enabledOnTouch: true,
+  /** Desktop aims raw: a mouse does not need the help and the pull fights the hand. */
+  enabledOnDesktop: false,
   /** Extra world units added to an enemy's radius for the player's own bullets. */
-  hitTolerance: 7,
-  /** Half-angle of the cone in which any assistance applies at all. */
-  coneDeg: 7,
-  /** Fraction the aim sweep slows by when passing across a target. */
-  sweepSlowdown: 0.45,
-  /** Maximum correction per second, so it can never track a moving target. */
-  magnetDegPerSecond: 34,
-  magnetRange: 340,
+  hitTolerance: 9,
+
+  // ---- tiers, measured from where the stick is pointing to where the enemy is ----
+  /** Inside this half-angle the shot is "basically lined up" and the pull is strong. */
+  strongConeDeg: 15,
+  /** From strongConeDeg out to here the pull fades away. Past it there is none. */
+  mildConeDeg: 25,
+  /** Correction rate at dead centre, degrees per second. */
+  strongPullDegPerSecond: 200,
+  /** Correction rate at the outer edge of the mild cone. */
+  mildPullDegPerSecond: 55,
+
+  // ---- holding FIRE ----
+  /** Holding FIRE widens the search this far and swings the gun onto the target. */
+  fireConeDeg: 70,
+  /** Ceiling on the fire cone after the weapon multiplier, so nothing aims behind you. */
+  fireConeMaxDeg: 100,
+  /** Turn speed multiplier while swinging onto a target under fire. */
+  fireTurnSpeedMult: 2.6,
+
+  // ---- soft lock ----
+  /** A chosen target stays chosen this long, so the aim cannot flicker between two. */
+  softLockMs: 400,
+  /** Deliberately swinging this far off drops the lock at once - the player wins. */
+  softLockBreakDeg: 85,
+
+  /** Assist reach: the weapon's own range, capped here. */
+  maxRange: 900,
+  /** Fraction the aim sweep slows by while crossing a target, so a thumb can settle. */
+  sweepSlowdown: 0.4,
+} as const;
+
+/**
+ * Screen-edge markers for enemies you cannot see but who can see you.
+ *
+ * Line of sight is required, so this never reveals someone hiding behind a wall - it only
+ * tells you about a fight you are already in, which is the thing a 60-degree phone view
+ * takes away from you.
+ */
+export const THREAT_INDICATOR = {
+  enabled: true,
+  /** Enemies further out than this are not shown even with a clear line. */
+  range: 820,
+  /** Someone who shot you stays marked this long even after breaking line of sight. */
+  recentAttackerMs: 4000,
+  /** Inset from the screen edge, in pixels. */
+  edgeMargin: 46,
+  maxShown: 4,
 } as const;
 
 export const CAMERA_SHAKE = {

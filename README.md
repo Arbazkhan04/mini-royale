@@ -99,10 +99,62 @@ measure of how far you have got, not a different game.
 the left, an aim stick on the right, plus FIRE / R / HEAL / SWAP. The SIGNAL and PICK UP
 buttons only appear when they would actually do something.
 
-Touch input also gets light aim help (`systems/AimAssist.ts`): a slightly wider hit
-tolerance, a slower aim sweep while crossing a target, and a capped few-degrees-per-second
-nudge toward an enemy that is already nearly lined up. It never tracks a target, and
-desktop gets none of it.
+### Aiming on touch
+
+Aiming a twin-stick shooter with a thumb is materially harder than with a mouse: the stick
+is small, your hand covers the screen, and enemies arrive from outside a phone's narrow
+view. So touch gets real help (`systems/AimAssist.ts`), in three escalating steps. Desktop
+gets none of it - a mouse does not need it and the pull fights the hand.
+
+| Where the enemy is | What happens |
+| --- | --- |
+| Crossing your aim | The sweep slows by up to 40%, so a thumb can settle on them |
+| Within 15 deg | Aim is pulled hard toward them, ~200 deg/sec |
+| 15-25 deg | The pull fades out to ~55 deg/sec |
+| Past 25 deg | Nothing. You are aiming, not the game |
+| **Holding FIRE, within 70 deg** | The gun swings onto them outright |
+
+Holding FIRE is the important one: the search cone widens to 70 degrees and the gun is
+swung onto the target rather than nudged toward it. That is the one place the assist
+genuinely aims for you, and it is deliberate - pointing the stick in an enemy's general
+direction and pulling the trigger should hit, because that is as precise as a thumb
+usefully gets.
+
+Every correction is a capped rate per second, so the player is always turning faster than
+the assist and can always override it. A **soft lock** holds the chosen target for 400ms so
+the aim cannot flicker between two enemies, and swinging 85 degrees away drops it at once -
+the player always wins a disagreement. Targets are ranked by angle first with distance only
+as a tie-break, which gives the order that reads correctly to a player: someone under the
+crosshair beats someone beside it, and someone beside it beats someone merely close. Every
+target needs line of sight, so the assist can never pull onto someone through a wall.
+
+**Per weapon.** `aimAssist` in `config/WeaponConfig.ts` scales the whole thing, and the
+assist only reaches as far as the weapon does - so a shotgun is forgiving at the range it
+actually works at, and never beyond it.
+
+| Weapon | Multiplier | Nudge cone | FIRE cone |
+| --- | --- | --- | --- |
+| LR-50 sniper | 0.15 | 3 deg | 10 deg |
+| MG-88 | 0.85 | 21 deg | 59 deg |
+| AR-27 / PX-9 | 1.0 | 25 deg | 70 deg |
+| SC-11 SMG | 1.15 | 28 deg | 80 deg |
+| Knife | 1.3 | 32 deg | 91 deg |
+| SG-12 shotgun | 1.7 | 42 deg | 100 deg (capped) |
+
+The cap exists so no weapon can ever swing onto someone standing behind you.
+
+**Threat markers** (`ui/ThreatOverlay.ts`). A phone shows a fraction of the world, so an
+enemy shooting you from behind is invisible and unanswerable. Off-screen enemies within 820
+units get a red chevron on the screen edge pointing at them, sized and brightened by how
+close they are. It requires line of sight, so it never reveals someone hiding behind a
+wall - it only tells you about a fight you are already in. Anyone who has actually shot you
+stays marked for 4 seconds even after breaking line of sight, because by then you know.
+The same overlay draws a gold bracket around the soft-locked target: an assist that
+silently decides where your shots go is confusing, one that shows its pick reads as help.
+
+**The sticks.** Both are floating, not fixed. Touch anywhere on the left half and the
+movement stick appears under your thumb; anywhere on the right and the aim stick does. The
+aim direction is kept when you lift off, so the character never snaps back.
 
 Append `?debug=1` to the URL to start with the debug overlay enabled.
 
