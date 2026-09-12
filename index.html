@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#10161d" />
+    <meta name="description" content="Last Signal - a fast top-down arcade battle royale built around a Signal Core worth fighting for." />
+    <title>Last Signal</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0b0f14;
+        font-family: 'Trebuchet MS', 'Segoe UI', system-ui, sans-serif;
+        color: #e8eef5;
+        overscroll-behavior: none;
+        touch-action: none;
+        -webkit-user-select: none;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+      #game-root {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #game-root canvas {
+        display: block;
+        touch-action: none;
+      }
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        background: radial-gradient(circle at 50% 40%, #1b2836 0%, #0b0f14 70%);
+        z-index: 10;
+        transition: opacity 0.4s ease;
+      }
+      #boot-splash.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+      #boot-splash h1 {
+        margin: 0;
+        font-size: clamp(28px, 7vw, 54px);
+        letter-spacing: 8px;
+        text-transform: uppercase;
+        color: #f4d03f;
+        text-shadow: 0 4px 0 #7a5c00, 0 10px 30px rgba(0, 0, 0, 0.6);
+      }
+      #boot-splash p {
+        margin: 0;
+        font-size: 14px;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        color: #8fa3b8;
+      }
+      .boot-bar {
+        width: min(280px, 60vw);
+        height: 6px;
+        border-radius: 3px;
+        background: #1d2733;
+        overflow: hidden;
+      }
+      .boot-bar span {
+        display: block;
+        width: 40%;
+        height: 100%;
+        border-radius: 3px;
+        background: linear-gradient(90deg, #f4d03f, #e67e22);
+        animation: boot-slide 1.1s ease-in-out infinite;
+      }
+      @keyframes boot-slide {
+        0% {
+          transform: translateX(-100%);
+        }
+        100% {
+          transform: translateX(250%);
+        }
+      }
+      #fatal-error {
+        position: fixed;
+        inset: 0;
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        padding: 24px;
+        background: #0b0f14;
+        z-index: 20;
+        text-align: center;
+      }
+      #fatal-error code {
+        max-width: 90vw;
+        overflow-wrap: anywhere;
+        color: #ff8a80;
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-root"></div>
+    <div id="boot-splash">
+      <h1>Last Signal</h1>
+      <div class="boot-bar"><span></span></div>
+      <p>Loading</p>
+    </div>
+    <div id="fatal-error">
+      <h2>Something went wrong</h2>
+      <code id="fatal-error-message"></code>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

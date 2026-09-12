@@ -1,0 +1,20 @@
+{
+  "name": "last-signal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Last Signal - a lightweight top-down arcade battle royale built around a contested Signal Core.",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "phaser": "^3.80.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
