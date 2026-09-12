@@ -163,6 +163,20 @@ to 60 fps in a software-rendered browser. The same reasoning shapes the map rend
 large `TileSprite`s allocate a canvas the size of their display area, and a map-wide
 `Graphics` re-emits its whole command buffer every frame, so neither is used for scenery.
 
+**Responsive buttons.** Every button in the game comes from `ui/Button.ts`, which exists
+for two reasons. The first is a pressed state: Phaser handles input before it renders, so
+painting the press inside the `pointerdown` handler puts a lit, sunken button on screen in
+the same frame as the tap, before any scene handoff begins - without it a button that
+starts a match looks dead for as long as the handoff takes. Touch has no hover state at
+all, so there it is the only feedback a press ever gets.
+
+The second is a Phaser trap worth knowing: a Container's hit area is **not** centred on the
+container even though its children are. Phaser adds the object's `displayOrigin` to the
+local point before testing, so the natural-looking `Rectangle(-w/2, -h/2, w, h)` ends up
+shifted half a button up and left - the visible right and bottom halves stop responding and
+a click dead-centre lands exactly on the excluded edge. The hit area is anchored at
+`(0, 0)` instead, and `ui/Button.ts` is the only place in the codebase that defines one.
+
 **Readable damage.** Taking a hit flashes the screen edges rather than washing out the
 middle, with a directional arrow for where it came from. Armor reads as `ARMOR II 37%` -
 the tier and how much is left, never the mitigation maths.
@@ -195,7 +209,7 @@ src/
   map/                    MapGenerator, MapRenderer, Building, CoverObject,
                           NavGrid, MapData
   graphics/               TextureFactory (all runtime art), GraphicsUtils
-  ui/                     HUD, Minimap, KillFeed, Crosshair, InventoryUI,
+  ui/                     Button, HUD, Minimap, KillFeed, Crosshair, InventoryUI,
                           Announcer, TouchControls, DebugOverlay
   utils/                  Constants, MathUtils, RandomUtils, Storage
 ```

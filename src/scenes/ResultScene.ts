@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { PALETTE } from '../config/GameConfig';
 import { AudioSystem } from '../systems/AudioSystem';
+import { createButton } from '../ui/Button';
 import { SceneKey } from '../utils/Constants';
 import { formatTime } from '../utils/MathUtils';
 import { randomSeed } from '../utils/RandomUtils';
@@ -108,10 +109,10 @@ export class ResultScene extends Phaser.Scene {
 
     // Winning moves you on; losing lets you take the same level again.
     const nextLabel = victory ? `NEXT LEVEL  ${result.level + 1}` : 'RETRY LEVEL';
-    const playAgain = this.makeButton(nextLabel, 250, 54, () => this.replay());
+    const playAgain = this.button(nextLabel, 250, 54, () => this.replay());
     playAgain.setName('play-again');
 
-    const menu = this.makeButton('MENU', 200, 46, () => {
+    const menu = this.button('MENU', 200, 46, () => {
       this.scene.start(SceneKey.Menu);
     });
 
@@ -134,43 +135,25 @@ export class ResultScene extends Phaser.Scene {
     const seed = randomSeed();
     const cam = this.cameras.main;
     cam.resetFX();
-    cam.fadeOut(170, 8, 12, 18);
-    this.time.delayedCall(180, () => this.scene.start(SceneKey.Game, { seed }));
+    cam.fadeOut(110, 8, 12, 18);
+    this.time.delayedCall(120, () => this.scene.start(SceneKey.Game, { seed }));
   }
 
-  private makeButton(
+
+  private button(
     label: string,
     width: number,
     height: number,
     onClick: () => void,
   ): Phaser.GameObjects.Container {
-    const g = this.add.graphics();
-    const draw = (hover: boolean): void => {
-      g.clear();
-      g.fillStyle(hover ? 0x2a4a63 : 0x16222f, 0.95);
-      g.fillRoundedRect(-width / 2, -height / 2, width, height, 12);
-      g.lineStyle(3, hover ? PALETTE.gold : 0x2f4356, 1);
-      g.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
-    };
-    draw(false);
-
-    const text = this.add
-      .text(0, 0, label, { fontFamily: FONT, fontSize: '20px', color: '#ffffff', fontStyle: 'bold' })
-      .setOrigin(0.5, 0.5);
-
-    const container = this.add.container(0, 0, [g, text]);
-    container.setSize(width, height);
-    container.setInteractive(
-      new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height),
-      Phaser.Geom.Rectangle.Contains,
-    );
-    container.on('pointerover', () => draw(true));
-    container.on('pointerout', () => draw(false));
-    container.on('pointerdown', () => {
-      this.audio.play('uiClick');
-      onClick();
+    return createButton(this, {
+      label,
+      width,
+      height,
+      fontSize: 20,
+      onClick,
+      onPress: () => this.audio.play('uiClick'),
     });
-    return container;
   }
 
   private layout(): void {

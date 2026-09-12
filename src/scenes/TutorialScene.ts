@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import { COMBAT, MATCH, PALETTE, ZONE } from '../config/GameConfig';
 import { SIGNAL } from '../config/SignalConfig';
 import { AudioSystem } from '../systems/AudioSystem';
+import { createButton } from '../ui/Button';
 import { SceneKey } from '../utils/Constants';
 import { Storage } from '../utils/Storage';
 
@@ -226,6 +227,9 @@ export class TutorialScene extends Phaser.Scene {
   private taglineText!: Phaser.GameObjects.Text;
   private counterText!: Phaser.GameObjects.Text;
   private body!: Phaser.GameObjects.Container;
+  private rowPool: { label: Phaser.GameObjects.Text; text: Phaser.GameObjects.Text }[] = [];
+  /** Type size and deck height per layout geometry. Cleared when the scene restarts. */
+  private readonly fitCache = new Map<string, { textSize: number; height: number }>();
   private dotGraphics!: Phaser.GameObjects.Graphics;
   private dotHits: Phaser.GameObjects.Zone[] = [];
   private prevButton!: Phaser.GameObjects.Container;
@@ -245,6 +249,7 @@ export class TutorialScene extends Phaser.Scene {
     this.firstRun = data?.firstRun === true;
     this.leaving = false;
     this.index = 0;
+    this.fitCache.clear();
     this.pages = buildPages(this.sys.game.device.input.touch);
 
     this.cameras.main.setBackgroundColor('#0b1119');
@@ -268,6 +273,17 @@ export class TutorialScene extends Phaser.Scene {
       .setOrigin(1, 0);
 
     this.body = this.add.container(0, 0);
+    const maxRows = this.pages.reduce((n, p) => Math.max(n, p.rows.length), 0);
+    this.rowPool = Array.from({ length: maxRows }, () => {
+      const label = this.add.text(0, 0, '', { fontFamily: FONT, fontStyle: 'bold' });
+      const text = this.add.text(0, 0, '', {
+        fontFamily: FONT,
+        color: '#c4d2e0',
+        lineSpacing: 3,
+      });
+      this.body.add([label, text]);
+      return { label, text };
+    });
     this.dotGraphics = this.add.graphics();
     this.dotHits = this.pages.map((_, i) => {
       // A generous invisible hit area - the dots themselves are far too small to tap.
@@ -279,8 +295,8 @@ export class TutorialScene extends Phaser.Scene {
       return hit;
     });
 
-    this.prevButton = this.makeButton('BACK', 132, 46, () => this.go(-1));
-    const next = this.makeButton('NEXT', 176, 46, () => this.go(1));
+    this.prevButton = this.button('BACK', 132, 46, () => this.go(-1));
+    const next = this.button('NEXT', 176, 46, () => this.go(1));
     this.nextButton = next;
     this.nextLabel = next.getAt(1) as Phaser.GameObjects.Text;
 
@@ -316,8 +332,6 @@ export class TutorialScene extends Phaser.Scene {
       return;
     }
     this.index = target;
-    this.audio.unlock();
-    this.audio.play('uiClick');
     this.layout();
   }
 
@@ -342,6 +356,26 @@ export class TutorialScene extends Phaser.Scene {
     this.time.delayedCall(170, () => this.scene.start(SceneKey.Menu));
   }
 
+  private button(
+    label: string,
+    width: number,
+    height: number,
+    onClick: () => void,
+  ): Phaser.GameObjects.Container {
+    return createButton(this, {
+      label,
+      width,
+      height,
+      fontSize: 19,
+      radius: 10,
+      onClick,
+      onPress: () => {
+        this.audio.unlock();
+        this.audio.play('uiClick');
+      },
+    });
+  }
+
   // ---------------------------------------------------------------- rendering
 
   private layout(): void {
@@ -356,12 +390,14 @@ export class TutorialScene extends Phaser.Scene {
     const footerH = narrow ? 108 : 122;
     const maxPanelH = h - 32;
 
-    // The rows are laid out first so the panel can be sized to the page rather than every
-    // page sharing one fixed height and the short ones ending in dead space.
-    const bodyHeight = this.renderRows(page, panelW - pad * 2, narrow, maxPanelH - headerH - footerH);
+    // One height for every page, taken from the tallest. Sizing the panel to each page
+    // individually looked tidier but slid the buttons up and down on every turn, so a
+    // second click on NEXT landed where NEXT used to be and appeared to do nothing.
+    const fit = this.computeFit(panelW - pad * 2, narrow, maxPanelH - headerH - footerH);
+    this.layoutRows(page, panelW - pad * 2, narrow, fit.textSize);
     const panelH = Math.min(
       maxPanelH,
-      Math.max(narrow ? 290 : 330, headerH + bodyHeight + footerH),
+      Math.max(narrow ? 290 : 330, headerH + fit.height + footerH),
     );
     const left = (w - panelW) / 2;
     const top = (h - panelH) / 2;
@@ -404,22 +440,34 @@ export class TutorialScene extends Phaser.Scene {
   }
 
   /**
-   * Lays the page out at the largest type size that still fits the space available, so a
-   * long page on a short window shrinks rather than running off the bottom.
+   * Picks the largest type size at which *every* page fits the space available, and
+   * reports the tallest page's height at that size. One size and one height for the whole
+   * deck keeps the type consistent from page to page and the footer nailed in place.
+   *
+   * Cached per layout geometry: this measures all seven pages, which is far too much work
+   * to repeat on every page turn, but it only changes when the window does.
    */
-  private renderRows(
-    page: TutorialPage,
+  private computeFit(
     width: number,
     narrow: boolean,
     available: number,
-  ): number {
+  ): { textSize: number; height: number } {
+    const key = `${Math.round(width)}|${narrow}|${Math.round(available)}`;
+    const cached = this.fitCache.get(key);
+    if (cached) return cached;
+
     const sizes = narrow ? [13, 12, 11, 10] : [15, 14, 13, 12];
-    let height = 0;
-    for (let i = 0; i < sizes.length; i++) {
-      height = this.layoutRows(page, width, narrow, sizes[i]!);
-      if (height <= available) break;
+    let result = { textSize: sizes[sizes.length - 1]!, height: 0 };
+    for (const textSize of sizes) {
+      let tallest = 0;
+      for (const page of this.pages) {
+        tallest = Math.max(tallest, this.layoutRows(page, width, narrow, textSize));
+      }
+      result = { textSize, height: tallest };
+      if (tallest <= available) break;
     }
-    return height;
+    this.fitCache.set(key, result);
+    return result;
   }
 
   /**
@@ -427,35 +475,46 @@ export class TutorialScene extends Phaser.Scene {
    * stays aligned on wide screens and collapses to stacked lines on a phone. Coordinates
    * are relative to `this.body`, which the caller places.
    */
+  /**
+   * Reuses a pool of Text objects rather than destroying and recreating them. Creating a
+   * Phaser Text measures and uploads a canvas texture, and the fit loop above can run this
+   * up to four times, so building fresh objects made every press of NEXT allocate dozens
+   * of textures and cost enough to drop frames.
+   */
   private layoutRows(
     page: TutorialPage,
     width: number,
     narrow: boolean,
     textSize: number,
   ): number {
-    this.body.removeAll(true);
     const labelWidth = 124;
     const gap = Math.max(9, textSize - 1);
     let cursor = 0;
 
-    for (const row of page.rows) {
-      const label = this.add.text(0, cursor, row.label, {
-        fontFamily: FONT,
-        fontSize: `${Math.max(10, textSize - 3)}px`,
-        color: page.accent,
-        fontStyle: 'bold',
-      });
-      const textX = narrow ? 0 : labelWidth;
-      const textY = narrow ? cursor + textSize + 4 : cursor - 2;
-      const text = this.add.text(textX, textY, row.text, {
-        fontFamily: FONT,
-        fontSize: `${textSize}px`,
-        color: '#c4d2e0',
-        wordWrap: { width: narrow ? width : width - labelWidth },
-        lineSpacing: 3,
-      });
-      this.body.add([label, text]);
-      cursor = Math.max(text.y + text.height, label.y + label.height) + gap;
+    for (let i = 0; i < this.rowPool.length; i++) {
+      const slot = this.rowPool[i]!;
+      const row = page.rows[i];
+      if (!row) {
+        slot.label.setVisible(false);
+        slot.text.setVisible(false);
+        continue;
+      }
+
+      slot.label
+        .setVisible(true)
+        .setFontSize(Math.max(10, textSize - 3))
+        .setColor(page.accent)
+        .setText(row.label)
+        .setPosition(0, cursor);
+
+      slot.text
+        .setVisible(true)
+        .setFontSize(textSize)
+        .setWordWrapWidth(narrow ? width : width - labelWidth)
+        .setText(row.text)
+        .setPosition(narrow ? 0 : labelWidth, narrow ? cursor + textSize + 4 : cursor - 2);
+
+      cursor = Math.max(slot.text.y + slot.text.height, slot.label.y + slot.label.height) + gap;
     }
     return Math.max(0, cursor - gap);
   }
@@ -478,35 +537,4 @@ export class TutorialScene extends Phaser.Scene {
     }
   }
 
-  private makeButton(
-    label: string,
-    width: number,
-    height: number,
-    onClick: () => void,
-  ): Phaser.GameObjects.Container {
-    const g = this.add.graphics();
-    const draw = (hover: boolean): void => {
-      g.clear();
-      g.fillStyle(hover ? 0x2a4a63 : 0x16222f, 0.95);
-      g.fillRoundedRect(-width / 2, -height / 2, width, height, 10);
-      g.lineStyle(2, hover ? PALETTE.gold : 0x2f4356, 1);
-      g.strokeRoundedRect(-width / 2, -height / 2, width, height, 10);
-    };
-    draw(false);
-
-    const text = this.add
-      .text(0, 0, label, { fontFamily: FONT, fontSize: '19px', color: '#ffffff', fontStyle: 'bold' })
-      .setOrigin(0.5, 0.5);
-
-    const container = this.add.container(0, 0, [g, text]);
-    container.setSize(width, height);
-    container.setInteractive(
-      new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height),
-      Phaser.Geom.Rectangle.Contains,
-    );
-    container.on('pointerover', () => draw(true));
-    container.on('pointerout', () => draw(false));
-    container.on('pointerdown', onClick);
-    return container;
-  }
 }

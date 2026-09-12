@@ -1,9 +1,10 @@
 import Phaser from 'phaser';
-import { MATCH, PALETTE } from '../config/GameConfig';
+import { MATCH } from '../config/GameConfig';
 import { TEX_SCALE } from '../graphics/TextureFactory';
 import { AudioSystem } from '../systems/AudioSystem';
 import { SceneKey, Tex } from '../utils/Constants';
 import { Rng, randomSeed } from '../utils/RandomUtils';
+import { createButton } from '../ui/Button';
 import { Storage } from '../utils/Storage';
 
 const FONT = 'Trebuchet MS, Segoe UI, sans-serif';
@@ -119,10 +120,10 @@ export class MenuScene extends Phaser.Scene {
     levelLine.setShadow(0, 3, '#000000', 6);
     levelLine.setName('level');
 
-    const playButton = this.makeButton('PLAY', 240, 58, () => this.startMatch());
+    const playButton = this.button('PLAY', 240, 58, () => this.startMatch());
     playButton.setName('play');
 
-    const howToButton = this.makeButton(
+    const howToButton = this.button(
       'HOW TO PLAY',
       240,
       42,
@@ -193,53 +194,25 @@ export class MenuScene extends Phaser.Scene {
     return `SOUND  ${Math.round(this.audio.volume * 100)}%   (click to change)`;
   }
 
-  private makeButton(
+
+  private button(
     label: string,
     width: number,
     height: number,
     onClick: () => void,
     fontSize = 26,
   ): Phaser.GameObjects.Container {
-    const g = this.add.graphics();
-    const draw = (hover: boolean): void => {
-      g.clear();
-      g.fillStyle(hover ? 0x2a4a63 : 0x16222f, 0.95);
-      g.fillRoundedRect(-width / 2, -height / 2, width, height, 12);
-      g.lineStyle(3, hover ? PALETTE.gold : 0x2f4356, 1);
-      g.strokeRoundedRect(-width / 2, -height / 2, width, height, 12);
-    };
-    draw(false);
-
-    const text = this.add
-      .text(0, 0, label, {
-        fontFamily: FONT,
-        fontSize: `${fontSize}px`,
-        color: '#ffffff',
-        fontStyle: 'bold',
-      })
-      .setOrigin(0.5, 0.5);
-    text.setShadow(0, 3, '#000000', 5);
-
-    const container = this.add.container(0, 0, [g, text]);
-    container.setSize(width, height);
-    container.setInteractive(
-      new Phaser.Geom.Rectangle(-width / 2, -height / 2, width, height),
-      Phaser.Geom.Rectangle.Contains,
-    );
-    container.on('pointerover', () => {
-      draw(true);
-      this.tweens.add({ targets: container, scale: 1.04, duration: 120 });
+    return createButton(this, {
+      label,
+      width,
+      height,
+      fontSize,
+      onClick,
+      onPress: () => {
+        this.audio.unlock();
+        this.audio.play('uiClick');
+      },
     });
-    container.on('pointerout', () => {
-      draw(false);
-      this.tweens.add({ targets: container, scale: 1, duration: 120 });
-    });
-    container.on('pointerdown', () => {
-      this.audio.unlock();
-      this.audio.play('uiClick');
-      onClick();
-    });
-    return container;
   }
 
   private layout(): void {
@@ -297,8 +270,8 @@ export class MenuScene extends Phaser.Scene {
     // resetFX first: a fade that is still running would otherwise swallow this one, and
     // the switch is driven by a timer rather than the fade callback so it can never hang.
     cam.resetFX();
-    cam.fadeOut(170, 8, 12, 18);
-    this.time.delayedCall(180, () => this.scene.start(SceneKey.Game, { seed }));
+    cam.fadeOut(110, 8, 12, 18);
+    this.time.delayedCall(120, () => this.scene.start(SceneKey.Game, { seed }));
   }
 
   override update(_time: number, delta: number): void {
