@@ -156,8 +156,20 @@ silently decides where your shots go is confusing, one that shows its pick reads
 movement stick appears under your thumb; anywhere on the right and the aim stick does. The
 aim direction is kept when you lift off, so the character never snaps back.
 
-**Tap an enemy to shoot them.** The most direct expression of what a player actually
-wants - *I can see him, shoot him.* Touching an enemy on screen names them as the target:
+**Touch aiming is absolute, the way a mouse is.** The gun points at the spot you touched,
+not in the direction you dragged from some origin. A relative stick asks you to translate
+"he is up and to the left" into a thumb vector, and that translation step is exactly what
+made shooting hard - it is a step a mouse never asks for. Touch anywhere on the right half
+and the gun swings to face that point and fires; drag and it follows your finger; let go
+and it stops. There is no FIRE button, because touching the screen already shoots.
+
+The left half stays the movement stick, with one exception that needs no guessing about
+intent: **touching an enemy shoots him wherever he is on screen**, left half included. An
+enemy is a discrete thing the player is pointing at, so it can be read immediately - unlike
+telling a tap apart from the start of a walk, which cannot be known until the finger has
+already moved or lifted.
+
+**Tap an enemy to shoot them.** Touching an enemy on screen names them as the target:
 the gun swings onto them at four times the normal turn speed, the aim assist is bypassed
 entirely (there is nothing left to assist with once the player has named a target), and
 fire is held until the barrel is within 14 degrees so the first round is not thrown into

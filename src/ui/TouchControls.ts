@@ -31,10 +31,16 @@ export class TouchControls {
   private movePointerId = -1;
   private moveOrigin = new Phaser.Math.Vector2();
   private aimPointerId = -1;
-  private aimOrigin = new Phaser.Math.Vector2();
   private firePointerId = -1;
-  private tapPointerId = -1;
-  private tapReleaseTimer: Phaser.Time.TimerEvent | null = null;
+  /**
+   * Scene time at which a committed tap stops firing, or 0 when nothing is committed.
+   *
+   * A deadline rather than a Phaser timer on purpose: a timer can be cancelled or re-armed
+   * by a stray event and silently leave the trigger held down, which cost a whole magazine
+   * per tap when this was a timer.
+   */
+  private fireUntil = 0;
+  private aimDownAt = 0;
   private targetAcquired = false;
 
   private readonly stickRadius = 62;
@@ -54,7 +60,7 @@ export class TouchControls {
       .container(0, 0, [this.moveBase, this.moveThumb, this.aimBase, this.aimThumb])
       .setDepth(Depth.Debug + 3);
 
-    this.createButton('fire', 'FIRE', 46);
+    if (TOUCH_AIM.showFireButton) this.createButton('fire', 'FIRE', 46);
     this.createButton('ability', 'SIGNAL', 34, true);
     this.createButton('reload', 'R', 29);
     this.createButton('heal', 'HEAL', 29);
@@ -165,35 +171,76 @@ export class TouchControls {
       return;
     }
 
-    // Tapping an enemy beats both sticks: the player has named who they want to shoot,
-    // which is more specific than any direction a stick could express.
-    if (TOUCH_AIM.tapToShoot && this.tapPointerId === -1) {
-      const enemy = this.enemyAt(pointer.x, pointer.y);
-      if (enemy) {
-        this.tapPointerId = pointer.id;
-        this.tapReleaseTimer?.remove();
-        this.tapReleaseTimer = null;
-        this.input.setTapTarget(enemy);
-        this.setTargetAcquired(true);
-        return;
-      }
-    }
+    // Touching an enemy shoots him, wherever on screen he happens to be. An enemy is a
+    // discrete thing the player is pointing at, so this needs no guessing about intent -
+    // unlike trying to tell a tap from the start of a walk, which cannot be known until
+    // the finger has already moved or lifted.
+    const enemy = TOUCH_AIM.tapToShoot ? this.enemyAt(pointer.x, pointer.y) : null;
+    const onLeft = pointer.x < this.scene.scale.width * 0.5;
 
-    if (pointer.x < this.scene.scale.width * 0.5) {
-      if (this.movePointerId !== -1) return;
+    if (!enemy && onLeft && this.movePointerId === -1) {
       this.movePointerId = pointer.id;
       this.moveOrigin.set(pointer.x, pointer.y);
       this.moveBase.setPosition(pointer.x, pointer.y);
       this.moveThumb.setPosition(pointer.x, pointer.y);
       this.setSticksVisible(true);
-    } else {
-      if (this.aimPointerId !== -1) return;
-      this.aimPointerId = pointer.id;
-      this.aimOrigin.set(pointer.x, pointer.y);
-      this.aimBase.setPosition(pointer.x, pointer.y).setVisible(true);
-      this.aimThumb.setPosition(pointer.x, pointer.y).setVisible(true);
-      this.input.setAimStickHeld(true);
+      return;
     }
+
+    if (this.aimPointerId !== -1) return;
+    this.aimPointerId = pointer.id;
+    this.beginAim(pointer.x, pointer.y);
+  }
+
+  /**
+   * Points the gun at a screen position and pulls the trigger.
+   *
+   * If an enemy is near enough to the touch they are named outright, which buys the fast
+   * swing onto them and the hold-until-lined-up guarantee. Otherwise the gun simply faces
+   * the spot and fires, so touching anywhere always does something.
+   */
+  private beginAim(screenX: number, screenY: number): void {
+    const enemy = TOUCH_AIM.tapToShoot ? this.enemyAt(screenX, screenY) : null;
+    this.fireUntil = 0;
+    if (enemy) {
+      this.input.setTapTarget(enemy);
+      this.setTargetAcquired(true);
+    }
+    this.aimDownAt = this.scene.time.now;
+    this.aimAt(screenX, screenY);
+    this.input.setAimStickHeld(true);
+    this.input.setVirtualFire(true);
+    this.aimBase.setPosition(screenX, screenY).setVisible(true);
+    this.aimThumb.setPosition(screenX, screenY).setVisible(true);
+  }
+
+  /** Converts a screen point to a world point and hands it to the input system. */
+  private aimAt(screenX: number, screenY: number): void {
+    const world = this.ctx.scene.cameras.main.getWorldPoint(screenX, screenY);
+    this.input.setVirtualAimPoint(world.x, world.y);
+  }
+
+  /**
+   * Lifting off does not necessarily stop the shot. A quick tap is released long before
+   * the gun has finished swinging, so the trigger is held through the commit window; only
+   * a deliberate press-and-hold stops the moment the finger leaves.
+   *
+   * The aim point itself is always kept, so the character holds its facing rather than
+   * snapping back to wherever it was pointing before.
+   */
+  private endAim(): void {
+    this.aimPointerId = -1;
+    this.aimBase.setVisible(false);
+    this.aimThumb.setVisible(false);
+    const wasTap = this.scene.time.now - this.aimDownAt <= TOUCH_AIM.tapMaxMs;
+    if (wasTap) {
+      this.scheduleTapRelease();
+      return;
+    }
+    this.input.setAimStickHeld(false);
+    this.input.setVirtualFire(false);
+    this.input.setTapTarget(null);
+    this.setTargetAcquired(false);
   }
 
   private onMove(pointer: Phaser.Input.Pointer): void {
@@ -211,31 +258,20 @@ export class TouchControls {
       const strength = Math.min(1, len / this.stickRadius);
       this.input.setVirtualMove(nx * strength, ny * strength);
     } else if (pointer.id === this.aimPointerId) {
-      const dx = pointer.x - this.aimOrigin.x;
-      const dy = pointer.y - this.aimOrigin.y;
-      const len = Math.hypot(dx, dy);
-      if (len < 12) return;
-      const nx = dx / len;
-      const ny = dy / len;
-      const clamped = Math.min(len, this.stickRadius);
-      this.aimThumb.setPosition(this.aimOrigin.x + nx * clamped, this.aimOrigin.y + ny * clamped);
-      this.input.setVirtualAim(Math.atan2(dy, dx));
+      // Absolute aim: the gun tracks the finger itself, not a vector from where it landed.
+      this.aimAt(pointer.x, pointer.y);
+      this.aimBase.setPosition(pointer.x, pointer.y);
+      this.aimThumb.setPosition(pointer.x, pointer.y);
+      const enemy = TOUCH_AIM.tapToShoot ? this.enemyAt(pointer.x, pointer.y) : null;
+      if (enemy) {
+        this.input.setTapTarget(enemy);
+        this.setTargetAcquired(true);
+      }
     }
   }
 
   private onUp(pointer: Phaser.Input.Pointer): void {
     for (const button of this.buttons) button.circle.setScale(1);
-    if (pointer.id === this.tapPointerId) {
-      this.tapPointerId = -1;
-      // Do not drop the target the instant the thumb lifts. The gun may still be swinging
-      // round, and "I tapped him and nothing happened" is the worst possible outcome.
-      this.tapReleaseTimer?.remove();
-      this.tapReleaseTimer = this.scene.time.delayedCall(TOUCH_AIM.tapCommitMs, () => {
-        this.tapReleaseTimer = null;
-        this.input.setTapTarget(null);
-        this.setTargetAcquired(false);
-      });
-    }
     if (pointer.id === this.firePointerId) {
       this.firePointerId = -1;
       this.input.setVirtualFire(false);
@@ -245,14 +281,27 @@ export class TouchControls {
       this.input.setVirtualMove(0, 0);
       this.setSticksVisible(false);
     }
-    if (pointer.id === this.aimPointerId) {
-      this.aimPointerId = -1;
-      this.aimBase.setVisible(false);
-      this.aimThumb.setVisible(false);
-      this.input.setAimStickHeld(false);
-      this.setTargetAcquired(false);
-      // Aim direction is kept so the character does not snap back on release.
-    }
+    if (pointer.id === this.aimPointerId) this.endAim();
+  }
+
+  private scheduleTapRelease(): void {
+    this.fireUntil = this.scene.time.now + TOUCH_AIM.tapCommitMs;
+  }
+
+  /**
+   * Ends a committed tap: when its window expires, or the moment the enemy it named goes
+   * down, since there is nothing left to shoot at and every further round is wasted.
+   */
+  update(): void {
+    if (this.fireUntil === 0) return;
+    const target = this.input.tapTarget;
+    const expired = this.scene.time.now >= this.fireUntil;
+    if (!expired && (!target || target.alive)) return;
+    this.fireUntil = 0;
+    this.input.setTapTarget(null);
+    this.input.setVirtualFire(false);
+    this.input.setAimStickHeld(false);
+    this.setTargetAcquired(false);
   }
 
   /**
@@ -297,8 +346,7 @@ export class TouchControls {
   }
 
   destroy(): void {
-    this.tapReleaseTimer?.remove();
-    this.tapReleaseTimer = null;
+    this.fireUntil = 0;
     this.scene.input.off(Phaser.Input.Events.POINTER_DOWN, this.onDown, this);
     this.scene.input.off(Phaser.Input.Events.POINTER_MOVE, this.onMove, this);
     this.scene.input.off(Phaser.Input.Events.POINTER_UP, this.onUp, this);

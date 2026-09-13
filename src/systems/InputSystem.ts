@@ -6,6 +6,9 @@ export interface VirtualInputState {
   moveY: number;
   /** Absolute aim angle in radians, or null when the stick is idle. */
   aimAngle: number | null;
+  /** World point the player is pointing at. Takes priority over `aimAngle`. */
+  aimPointX: number | null;
+  aimPointY: number | null;
   firing: boolean;
 }
 
@@ -28,7 +31,14 @@ export type InputAction =
  * matter of writing into `virtual` rather than special-casing the player.
  */
 export class InputSystem {
-  readonly virtual: VirtualInputState = { moveX: 0, moveY: 0, aimAngle: null, firing: false };
+  readonly virtual: VirtualInputState = {
+    moveX: 0,
+    moveY: 0,
+    aimAngle: null,
+    aimPointX: null,
+    aimPointY: null,
+    firing: false,
+  };
 
   moveX = 0;
   moveY = 0;
@@ -134,7 +144,14 @@ export class InputSystem {
     this.moveX = mx;
     this.moveY = my;
 
-    if (this.virtual.aimAngle !== null) {
+    if (this.virtual.aimPointX !== null && this.virtual.aimPointY !== null) {
+      // Absolute touch aiming: the gun faces the spot under the finger, exactly like a
+      // mouse. Kept as a world point rather than an angle so it stays correct while the
+      // player walks - the bearing to a fixed spot changes as you move past it.
+      this.aimAngleOverride = null;
+      this.aimWorldX = this.virtual.aimPointX;
+      this.aimWorldY = this.virtual.aimPointY;
+    } else if (this.virtual.aimAngle !== null) {
       this.aimAngleOverride = this.virtual.aimAngle;
       this.aimWorldX = playerX + Math.cos(this.virtual.aimAngle) * 300;
       this.aimWorldY = playerY + Math.sin(this.virtual.aimAngle) * 300;
@@ -193,6 +210,12 @@ export class InputSystem {
 
   setVirtualAim(angle: number | null): void {
     this.virtual.aimAngle = angle;
+  }
+
+  /** Point the gun at a world position, or pass null to release absolute aiming. */
+  setVirtualAimPoint(x: number | null, y: number | null): void {
+    this.virtual.aimPointX = x;
+    this.virtual.aimPointY = y;
   }
 
   setVirtualFire(firing: boolean): void {

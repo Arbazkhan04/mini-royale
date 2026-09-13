@@ -39,7 +39,7 @@ export class TutorialSystem {
     {
       key: 'move',
       text: 'WASD — MOVE     MOUSE — AIM',
-      touchText: 'LEFT STICK TO MOVE     DRAG RIGHT TO AIM',
+      touchText: 'DRAG LEFT SIDE TO MOVE',
       durationMs: 4200,
       basicsOnly: true,
       when: (ctx) => ctx.matchTimeMs > 300,
@@ -47,7 +47,7 @@ export class TutorialSystem {
     {
       key: 'fire',
       text: 'LEFT CLICK — FIRE',
-      touchText: 'FIRE BUTTON TO SHOOT',
+      touchText: 'TAP AN ENEMY TO SHOOT HIM',
       durationMs: 3200,
       basicsOnly: true,
       when: (ctx) => ctx.player.inventory.hasGun,

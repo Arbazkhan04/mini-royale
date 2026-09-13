@@ -194,7 +194,22 @@ export const TOUCH_AIM = {
    * finger comes up, so the trigger never gets a chance to release. Holding stays down as
    * long as you like; this only guarantees that a tap always means at least one shot.
    */
-  tapCommitMs: 500,
+  tapCommitMs: 340,
+
+  /**
+   * Touch aiming is absolute, the way a mouse is: the gun points at the spot you touched,
+   * not in the direction you dragged from some origin.
+   *
+   * This is the whole model. Touch anywhere and the gun swings to face that point and
+   * fires; drag and it follows your finger; let go and it stops. A relative stick asks you
+   * to translate "he is up and to the left" into a thumb vector, which is exactly the step
+   * that made shooting hard, and it is a step a mouse never asks for.
+   */
+  absoluteTouchAim: true,
+  /** The FIRE button is redundant once touching the screen shoots. */
+  showFireButton: false,
+  /** A touch shorter than this is a tap, and keeps firing through the commit window. */
+  tapMaxMs: 260,
 } as const;
 
 /**

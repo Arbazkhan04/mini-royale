@@ -191,6 +191,7 @@ export class UIScene extends Phaser.Scene {
     this.crosshair.update(delta);
     this.threats.update();
     this.announcer.update();
+    this.touch?.update();
     this.touch?.setAbilityAvailable(this.ctx.signal.hasAbility(this.ctx.player));
     // The aim thumb turns red while the stick is on a target, because at that moment the
     // stick is the trigger and it needs to look like one.

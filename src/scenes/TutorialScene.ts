@@ -54,14 +54,14 @@ function buildPages(touch: boolean): TutorialPage[] {
     ? [
         {
           label: 'TAP AN ENEMY',
-          text: 'The easy way to shoot: touch him on screen and the gun swings onto him and fires.',
+          text: 'The whole game: touch him on screen and the gun swings onto him and fires.',
         },
-        { label: 'LEFT STICK', text: 'Move. It appears wherever you put your thumb down.' },
         {
-          label: 'RIGHT SIDE',
-          text: 'Aim. Drag toward someone and you fire on your own - the thumb turns red when it has them.',
+          label: 'TAP ANYWHERE',
+          text: 'On the right half, the gun points where you touched and shoots. Drag and it follows your finger.',
         },
-        { label: 'FIRE', text: 'For shooting at nothing in particular. Aiming already fires.' },
+        { label: 'LEFT SIDE', text: 'Drag to move. It appears wherever you put your thumb down.' },
+        { label: 'NO FIRE BUTTON', text: 'Touching the screen already shoots. There is nothing to reach for.' },
         { label: 'R  /  HEAL', text: 'Reload, and use your best bandage or medkit.' },
         {
           label: 'PICK UP  /  SIGNAL',
