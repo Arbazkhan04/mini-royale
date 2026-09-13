@@ -147,6 +147,57 @@ export const AIM_ASSIST = {
 } as const;
 
 /**
+ * One-thumb shooting.
+ *
+ * Aiming with the right stick and then reaching for a separate FIRE button is the single
+ * most awkward thing about a twin-stick shooter on a phone - it needs a third thumb, or a
+ * pause between aiming and shooting that a firefight does not give you. So the aim stick
+ * is also the trigger: drag it toward an enemy and the gun fires on its own.
+ *
+ * It only fires when there is actually someone to shoot, inside a cone narrow enough that
+ * it reads as intent rather than accident. Sweeping the stick past an enemy on your way
+ * somewhere else does not empty your magazine, and turning to look around never costs a
+ * round. The FIRE button still works and still gets the wider 70-degree snap, for
+ * suppressing fire and for anyone who prefers the two-thumb way.
+ */
+export const TOUCH_AIM = {
+  fireWhileAiming: true,
+  /** Half-angle that counts as "pointing at them", before the weapon multiplier. */
+  autoFireConeDeg: 18,
+  /**
+   * Holding the trigger re-taps a semi-automatic weapon at its own fire rate.
+   *
+   * A mouse click per shot is nothing; a thumb tapping a screen button as fast as a PX-9
+   * can cycle is not realistic, and without this a semi-auto on a phone fires one round
+   * and stops, which reads as the gun being broken. Desktop keeps click-per-shot.
+   */
+  autoRepeatSemiAuto: true,
+
+  /**
+   * Tap an enemy to shoot them.
+   *
+   * The most direct expression of what a player actually wants: I can see him, shoot him.
+   * No stick to line up and no button to find - touch the enemy on screen and the gun
+   * swings onto him and fires, and keeps firing while your thumb stays down.
+   */
+  tapToShoot: true,
+  /** How near the tap has to land, in screen pixels. Enemies are small; thumbs are not. */
+  tapRadiusPx: 62,
+  /** Turn speed multiplier while swinging onto a tapped enemy. */
+  tapTurnSpeedMult: 4,
+  /** Hold fire until the gun is this close to lined up, so the first shot is not thrown away. */
+  tapFireToleranceDeg: 14,
+  /**
+   * A tap keeps shooting this long after the thumb lifts.
+   *
+   * Without it a quick tap does nothing at all: the gun is still swinging round when the
+   * finger comes up, so the trigger never gets a chance to release. Holding stays down as
+   * long as you like; this only guarantees that a tap always means at least one shot.
+   */
+  tapCommitMs: 500,
+} as const;
+
+/**
  * Screen-edge markers for enemies you cannot see but who can see you.
  *
  * Line of sight is required, so this never reveals someone hiding behind a wall - it only

@@ -52,11 +52,21 @@ function buildPages(touch: boolean): TutorialPage[] {
 
   const controlRows: readonly TutorialRow[] = touch
     ? [
+        {
+          label: 'TAP AN ENEMY',
+          text: 'The easy way to shoot: touch him on screen and the gun swings onto him and fires.',
+        },
         { label: 'LEFT STICK', text: 'Move. It appears wherever you put your thumb down.' },
-        { label: 'RIGHT SIDE', text: 'Aim. Drag to turn, and FIRE shoots where you point.' },
+        {
+          label: 'RIGHT SIDE',
+          text: 'Aim. Drag toward someone and you fire on your own - the thumb turns red when it has them.',
+        },
+        { label: 'FIRE', text: 'For shooting at nothing in particular. Aiming already fires.' },
         { label: 'R  /  HEAL', text: 'Reload, and use your best bandage or medkit.' },
-        { label: 'PICK UP', text: 'Appears only when there is something at your feet worth taking.' },
-        { label: 'SIGNAL', text: 'Appears only once you are carrying the Signal Core.' },
+        {
+          label: 'PICK UP  /  SIGNAL',
+          text: 'Each appears only when there is something to take, or an ability to use.',
+        },
       ]
     : [
         { label: 'WASD', text: 'Move. Arrow keys work too.' },

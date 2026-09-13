@@ -58,7 +58,7 @@ export class UIScene extends Phaser.Scene {
     this.announcer = new Announcer(this, this.ctx);
 
     if (this.isTouchDevice) {
-      this.touch = new TouchControls(this, this.inputSystem);
+      this.touch = new TouchControls(this, this.inputSystem, this.ctx);
       this.crosshair.setEnabled(false);
     } else {
       this.input.setDefaultCursor('none');
@@ -192,6 +192,13 @@ export class UIScene extends Phaser.Scene {
     this.threats.update();
     this.announcer.update();
     this.touch?.setAbilityAvailable(this.ctx.signal.hasAbility(this.ctx.player));
+    // The aim thumb turns red while the stick is on a target, because at that moment the
+    // stick is the trigger and it needs to look like one.
+    this.touch?.setTargetAcquired(
+      this.inputSystem.tapTarget !== null ||
+        (this.inputSystem.aimStickHeld &&
+          this.ctx.aimAssist.hasAutoFireTarget(this.ctx.player, this.ctx.player.desiredAim)),
+    );
   }
 
   private onShutdown(): void {

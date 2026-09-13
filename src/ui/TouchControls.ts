@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
-import { PALETTE } from '../config/GameConfig';
+import { PALETTE, TOUCH_AIM } from '../config/GameConfig';
 import { Depth } from '../utils/Constants';
+import type { Combatant } from '../entities/Combatant';
 import type { InputAction, InputSystem } from '../systems/InputSystem';
+import type { MatchContext } from '../systems/MatchContext';
 
 const FONT = 'Trebuchet MS, Segoe UI, sans-serif';
 
@@ -31,6 +33,9 @@ export class TouchControls {
   private aimPointerId = -1;
   private aimOrigin = new Phaser.Math.Vector2();
   private firePointerId = -1;
+  private tapPointerId = -1;
+  private tapReleaseTimer: Phaser.Time.TimerEvent | null = null;
+  private targetAcquired = false;
 
   private readonly stickRadius = 62;
   private readonly thumbRadius = 28;
@@ -38,6 +43,7 @@ export class TouchControls {
   constructor(
     private readonly scene: Phaser.Scene,
     private readonly input: InputSystem,
+    private readonly ctx: MatchContext,
   ) {
     this.moveBase = scene.add.circle(0, 0, this.stickRadius, 0xffffff, 0.08).setStrokeStyle(2, 0xffffff, 0.25);
     this.moveThumb = scene.add.circle(0, 0, this.thumbRadius, 0xffffff, 0.22).setStrokeStyle(2, 0xffffff, 0.4);
@@ -159,6 +165,20 @@ export class TouchControls {
       return;
     }
 
+    // Tapping an enemy beats both sticks: the player has named who they want to shoot,
+    // which is more specific than any direction a stick could express.
+    if (TOUCH_AIM.tapToShoot && this.tapPointerId === -1) {
+      const enemy = this.enemyAt(pointer.x, pointer.y);
+      if (enemy) {
+        this.tapPointerId = pointer.id;
+        this.tapReleaseTimer?.remove();
+        this.tapReleaseTimer = null;
+        this.input.setTapTarget(enemy);
+        this.setTargetAcquired(true);
+        return;
+      }
+    }
+
     if (pointer.x < this.scene.scale.width * 0.5) {
       if (this.movePointerId !== -1) return;
       this.movePointerId = pointer.id;
@@ -172,6 +192,7 @@ export class TouchControls {
       this.aimOrigin.set(pointer.x, pointer.y);
       this.aimBase.setPosition(pointer.x, pointer.y).setVisible(true);
       this.aimThumb.setPosition(pointer.x, pointer.y).setVisible(true);
+      this.input.setAimStickHeld(true);
     }
   }
 
@@ -204,6 +225,17 @@ export class TouchControls {
 
   private onUp(pointer: Phaser.Input.Pointer): void {
     for (const button of this.buttons) button.circle.setScale(1);
+    if (pointer.id === this.tapPointerId) {
+      this.tapPointerId = -1;
+      // Do not drop the target the instant the thumb lifts. The gun may still be swinging
+      // round, and "I tapped him and nothing happened" is the worst possible outcome.
+      this.tapReleaseTimer?.remove();
+      this.tapReleaseTimer = this.scene.time.delayedCall(TOUCH_AIM.tapCommitMs, () => {
+        this.tapReleaseTimer = null;
+        this.input.setTapTarget(null);
+        this.setTargetAcquired(false);
+      });
+    }
     if (pointer.id === this.firePointerId) {
       this.firePointerId = -1;
       this.input.setVirtualFire(false);
@@ -217,8 +249,47 @@ export class TouchControls {
       this.aimPointerId = -1;
       this.aimBase.setVisible(false);
       this.aimThumb.setVisible(false);
+      this.input.setAimStickHeld(false);
+      this.setTargetAcquired(false);
       // Aim direction is kept so the character does not snap back on release.
     }
+  }
+
+  /**
+   * The enemy nearest a touch point, within `tapRadiusPx`. Enemies are a few pixels across
+   * on a phone, so the tap target is deliberately much larger than the sprite, and ties go
+   * to whoever is closest to where the thumb actually landed.
+   */
+  private enemyAt(screenX: number, screenY: number): Combatant | null {
+    const camera = this.ctx.scene.cameras.main;
+    const view = camera.worldView;
+    const zoom = camera.zoom;
+    let best: Combatant | null = null;
+    let bestDistance: number = TOUCH_AIM.tapRadiusPx;
+
+    for (const other of this.ctx.combatants) {
+      if (other === this.ctx.player || !other.alive) continue;
+      const dx = (other.x - view.x) * zoom - screenX;
+      const dy = (other.y - view.y) * zoom - screenY;
+      const d = Math.hypot(dx, dy);
+      if (d < bestDistance) {
+        bestDistance = d;
+        best = other;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Turns the aim thumb red while the stick is pointed at someone. The stick is firing on
+   * its own at that moment, so it has to look like a trigger being pulled.
+   */
+  setTargetAcquired(acquired: boolean): void {
+    if (acquired === this.targetAcquired) return;
+    this.targetAcquired = acquired;
+    const colour = acquired ? PALETTE.danger : PALETTE.gold;
+    this.aimThumb.setFillStyle(colour, acquired ? 0.42 : 0.25);
+    this.aimThumb.setStrokeStyle(2, colour, acquired ? 0.9 : 0.5);
   }
 
   setVisible(visible: boolean): void {
@@ -226,6 +297,8 @@ export class TouchControls {
   }
 
   destroy(): void {
+    this.tapReleaseTimer?.remove();
+    this.tapReleaseTimer = null;
     this.scene.input.off(Phaser.Input.Events.POINTER_DOWN, this.onDown, this);
     this.scene.input.off(Phaser.Input.Events.POINTER_MOVE, this.onMove, this);
     this.scene.input.off(Phaser.Input.Events.POINTER_UP, this.onUp, this);

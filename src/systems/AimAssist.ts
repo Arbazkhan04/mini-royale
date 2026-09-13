@@ -1,4 +1,4 @@
-import { AIM_ASSIST } from '../config/GameConfig';
+import { AIM_ASSIST, TOUCH_AIM } from '../config/GameConfig';
 import { angleBetween, angleDelta, clamp, degToRad, distance } from '../utils/MathUtils';
 import type { Combatant } from '../entities/Combatant';
 import type { MatchContext } from './MatchContext';
@@ -66,6 +66,39 @@ export class AimAssist {
   /** The current soft-locked enemy, for the on-screen marker. */
   get target(): Combatant | null {
     return this.locked;
+  }
+
+  /**
+   * Tap-to-shoot names its own target, so the on-screen bracket has to follow the tap
+   * rather than whatever the assist would have picked on its own.
+   */
+  forceLock(target: Combatant | null): void {
+    this.locked = target;
+    this.lockedUntil = target ? this.ctx.now + AIM_ASSIST.softLockMs : 0;
+  }
+
+  /**
+   * True when the player is pointing at someone close enough to count as intent, which is
+   * what lets the aim stick pull its own trigger. Deliberately a much narrower cone than
+   * the FIRE button's 70-degree snap: holding FIRE says "shoot whatever is roughly there",
+   * while the stick firing on its own has to mean "shoot *that one*".
+   */
+  hasAutoFireTarget(player: Combatant, aim: number): boolean {
+    if (!this.enabled || !player.alive) return false;
+    const weapon = player.weapon.base;
+    if (weapon.aimAssist <= 0) return false;
+
+    const range = Math.min(AIM_ASSIST.maxRange, weapon.range);
+    const cone = degToRad(TOUCH_AIM.autoFireConeDeg) * weapon.aimAssist;
+    for (const other of this.ctx.combatants) {
+      if (other === player || !other.alive) continue;
+      const dist = distance(player.x, player.y, other.x, other.y);
+      if (dist > range) continue;
+      const off = Math.abs(angleDelta(aim, angleBetween(player.x, player.y, other.x, other.y)));
+      if (off > cone) continue;
+      if (this.ctx.collision.hasLineOfSight(player.x, player.y, other.x, other.y)) return true;
+    }
+    return false;
   }
 
   apply(player: Combatant, desiredAim: number, delta: number, firing: boolean): AimAssistResult {

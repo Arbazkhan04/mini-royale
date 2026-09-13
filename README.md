@@ -156,6 +156,42 @@ silently decides where your shots go is confusing, one that shows its pick reads
 movement stick appears under your thumb; anywhere on the right and the aim stick does. The
 aim direction is kept when you lift off, so the character never snaps back.
 
+**Tap an enemy to shoot them.** The most direct expression of what a player actually
+wants - *I can see him, shoot him.* Touching an enemy on screen names them as the target:
+the gun swings onto them at four times the normal turn speed, the aim assist is bypassed
+entirely (there is nothing left to assist with once the player has named a target), and
+fire is held until the barrel is within 14 degrees so the first round is not thrown into
+the ground mid-swing. Holding keeps shooting them; a quick tap still commits for 500ms,
+because the gun may well still be swinging round when the thumb comes up and *"I tapped him
+and nothing happened"* is the worst possible outcome.
+
+The tap radius is 62 screen pixels, far larger than the sprite, and ties go to whoever is
+nearest where the thumb actually landed. A tap that lands on no one falls straight through
+to the sticks, so nothing is lost. Measured: from a gun pointed 114 degrees the wrong way,
+one tap swung onto the target, fired twice and killed them; a tap on empty ground sets no
+target and changes nothing.
+
+**The aim stick is also the trigger.** Aiming with one thumb and then reaching for a
+separate FIRE button is the most awkward thing about a twin-stick shooter on a phone: it
+wants a third thumb, or a pause between aiming and shooting that a firefight does not give
+you. So dragging the aim stick toward an enemy fires on its own, and the thumb turns red
+while it has someone, so the stick visibly *is* a trigger.
+
+It only fires when there is genuinely someone to shoot, inside an 18-degree cone (weapon
+scaled) that reads as intent rather than accident - sweeping the stick past an enemy on
+your way somewhere else does not empty your magazine, and turning to look around never
+costs a round. Verified: three seconds of holding the stick on empty ground fires nothing,
+and the aim never walks off the enemy you pointed at onto a different one. The FIRE button
+still works, still gets the wider 70-degree snap, and is there for suppressing fire and for
+anyone who prefers two thumbs. `TOUCH_AIM.fireWhileAiming` turns the whole thing off.
+
+**Held triggers re-tap semi-automatics** (`TOUCH_AIM.autoRepeatSemiAuto`, touch only). A
+mouse click per shot costs nothing, but no thumb taps a screen button as fast as a PX-9
+cycles - so on touch a held trigger re-arms the press each frame and the weapon fires at
+its own rate. `tryFire` still gates on `nextShotAt`, so this is exactly a perfectly timed
+tap and never faster than the weapon allows. Without it a semi-auto on a phone fired one
+round and stopped, which reads as a broken gun rather than as a fire mode.
+
 Append `?debug=1` to the URL to start with the debug overlay enabled.
 
 ## The Signal loop

@@ -1,6 +1,6 @@
-import { PLAYER } from '../config/GameConfig';
+import { PLAYER, TOUCH_AIM } from '../config/GameConfig';
 import { GameEvent } from '../utils/Constants';
-import { angleBetween } from '../utils/MathUtils';
+import { angleBetween, angleDelta, degToRad } from '../utils/MathUtils';
 import type { InputSystem } from '../systems/InputSystem';
 import type { MatchContext } from '../systems/MatchContext';
 import { Combatant } from './Combatant';
@@ -46,13 +46,7 @@ export class Player extends Combatant {
     this.moveInput.set(input.moveX, input.moveY);
     this.desiredAim = angleBetween(this.x, this.y, input.aimWorldX, input.aimWorldY);
 
-    // Read the trigger before aiming: holding FIRE is what escalates the assist from a
-    // nudge to actually swinging the gun onto the target.
-    const firing = input.firing;
-
-    const assist = this.ctx.aimAssist.apply(this, this.desiredAim, delta, firing);
-    this.desiredAim = assist.aim;
-    this.turnSpeed = PLAYER.turnSpeed * assist.turnSpeedMult;
+    const firing = this.aimAndDecideFiring(input, delta);
 
     if (input.consume('ability')) this.ctx.signal.useAbility(this);
     if (input.consume('reload')) this.tryReload();
@@ -72,8 +66,53 @@ export class Player extends Combatant {
     this.wantsToFire = firing;
 
     if (firing) {
-      this.ctx.combat.tryFire(this, { held: true, pressed: edge });
+      // On touch a held trigger keeps re-arming the press, so a semi-automatic cycles at
+      // its own fire rate instead of needing one tap per round. `tryFire` still gates on
+      // `nextShotAt`, so this is exactly a perfectly-timed tap and never faster.
+      const autoRepeat = TOUCH_AIM.autoRepeatSemiAuto && this.ctx.isTouch;
+      this.ctx.combat.tryFire(this, { held: true, pressed: edge || autoRepeat });
     }
+  }
+
+  /**
+   * Sets `desiredAim` and `turnSpeed`, and reports whether the trigger is down.
+   *
+   * There are three ways to shoot on touch, in descending order of how specific the
+   * player was about who they meant:
+   *
+   *  1. **Tapping an enemy** names a target outright. The gun swings onto them, the aim
+   *     assist is bypassed entirely - there is nothing left to assist with - and fire is
+   *     held until the barrel is actually lined up, so the first round is not thrown into
+   *     the ground mid-swing.
+   *  2. **Pointing the aim stick at someone** means "that one", and fires on its own.
+   *  3. **Holding FIRE** means "shoot whatever is roughly over there", and gets the wide
+   *     70-degree snap.
+   */
+  private aimAndDecideFiring(input: InputSystem, delta: number): boolean {
+    const tap = input.tapTarget;
+    if (tap && !tap.alive) input.setTapTarget(null);
+
+    if (tap && tap.alive) {
+      const toTap = angleBetween(this.x, this.y, tap.x, tap.y);
+      this.desiredAim = toTap;
+      this.turnSpeed = PLAYER.turnSpeed * TOUCH_AIM.tapTurnSpeedMult;
+      this.ctx.aimAssist.forceLock(tap);
+      return Math.abs(angleDelta(this.aimAngle, toTap)) <= degToRad(TOUCH_AIM.tapFireToleranceDeg);
+    }
+
+    // Read the trigger before aiming: holding FIRE is what escalates the assist from a
+    // nudge to actually swinging the gun onto the target. On touch the aim stick is a
+    // trigger too, so that pointing at someone and shooting them is one thumb's work.
+    const stickFiring =
+      TOUCH_AIM.fireWhileAiming &&
+      input.aimStickHeld &&
+      this.ctx.aimAssist.hasAutoFireTarget(this, this.desiredAim);
+    const firing = input.firing || stickFiring;
+
+    const assist = this.ctx.aimAssist.apply(this, this.desiredAim, delta, firing);
+    this.desiredAim = assist.aim;
+    this.turnSpeed = PLAYER.turnSpeed * assist.turnSpeedMult;
+    return firing;
   }
 
   /** Q uses the most appropriate consumable for the current health. */

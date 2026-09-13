@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import type { Combatant } from '../entities/Combatant';
 
 export interface VirtualInputState {
   moveX: number;
@@ -37,6 +38,10 @@ export class InputSystem {
   aimAngleOverride: number | null = null;
   firing = false;
   touchMode = false;
+  /** True while a thumb is actually on the aim stick, as opposed to the kept direction. */
+  aimStickHeld = false;
+  /** Enemy the player tapped directly. Overrides the sticks until the thumb lifts. */
+  tapTarget: Combatant | null = null;
 
   private readonly keys: Record<string, Phaser.Input.Keyboard.Key> = {};
   private readonly pending = new Set<InputAction>();
@@ -192,6 +197,14 @@ export class InputSystem {
 
   setVirtualFire(firing: boolean): void {
     this.virtual.firing = firing;
+  }
+
+  setAimStickHeld(held: boolean): void {
+    this.aimStickHeld = held;
+  }
+
+  setTapTarget(target: Combatant | null): void {
+    this.tapTarget = target;
   }
 
   destroy(): void {
